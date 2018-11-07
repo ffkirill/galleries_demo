@@ -14,14 +14,18 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.conf.urls import url, include
-from rest_framework import routers
+from rest_framework_extensions.routers import ExtendedDefaultRouter
 
 from users.viewsets import UserViewSet, AuthViewSet
-from albums.viewsets import AlbumViewSet
+from albums.viewsets import AlbumViewSet, PhotoViewSet
 
-router = routers.DefaultRouter()
+router = ExtendedDefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
-router.register(r'albums', AlbumViewSet, basename='album')
+
+(router.register(r'albums', AlbumViewSet, basename='album')
+       .register(r'photos', PhotoViewSet, 'photo',
+                 parents_query_lookups=['object_id']))
+
 router.register(r'auth', AuthViewSet, basename='auth')
 
 # Wire up our API using automatic URL routing.

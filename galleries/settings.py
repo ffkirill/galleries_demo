@@ -32,6 +32,8 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'sa_helper',
+    'albums',
+    'galleries',
     'django.contrib.staticfiles',
     'rest_framework',
 ]
