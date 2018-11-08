@@ -2,9 +2,8 @@ from uuid import UUID
 
 from django.conf import settings
 
-from rest_framework import viewsets, serializers, status, parsers
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework import viewsets, serializers, parsers
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 
 from sa_helper import Session
 from sa_helper.viewsets import ViewSetModelMixin, SerializerModelMixin
@@ -35,20 +34,7 @@ class AlbumSerializer(SerializerModelMixin, serializers.Serializer):
         return instance
 
 
-class DestroyMixin:
-    def destroy(self, request, pk=None, **kwargs):
-        album = self.get_object_or_404(pk, **kwargs)
-        sa_session = Session()
-        sa_session.delete(album)
-        try:
-            sa_session.commit()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            sa_session.rollback()
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class AlbumViewSet(DestroyMixin, ViewSetModelMixin, viewsets.ViewSet):
+class AlbumViewSet(ViewSetModelMixin, viewsets.ViewSet):
     """
     Albums CRUD operations, shows only owned (via user_id field) albums.
     Requires auth via session_key url param
@@ -107,37 +93,33 @@ class PhotoSerializer(SerializerModelMixin, serializers.Serializer):
         self._process_file(instance, validated_data)
         return instance
 
-class PhotoViewSet(DestroyMixin, ViewSetModelMixin, viewsets.ViewSet):
+class PhotoAlbumPermission(IsAuthenticated):
+    def has_permission(self, request, view):
+        result = super().has_permission(request, view)
+        if result and request.method not in SAFE_METHODS:
+            return Session().query(Album).filter(Album.id == view.kwargs['parent_lookup_object_id'],
+                                          Album.user_id == request.user.id).first() is not None
+        else:
+            return result
+
+
+class PhotoViewSet(ViewSetModelMixin, viewsets.ViewSet):
     """
     Album's photos CRUD operations.
     Requires auth via session_key url param
     """
     authentication_classes = (SessionIdAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (PhotoAlbumPermission,)
     serializer_class = PhotoSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser,)
 
     def apply_qs_filters(self, qs, **kwargs):
-        return qs.filter(Photo.album_id == UUID(kwargs['parent_lookup_object_id']),
-                         Album.user_id == self.request.user.id)
+        return (qs.filter(Photo.album_id == UUID(kwargs['parent_lookup_object_id']))
+                  .join(Album)
+                  .filter(Album.user_id == self.request.user.id))
 
     def kwargs_to_validated_data(self, kwargs):
         return {'album_id': UUID(kwargs['parent_lookup_object_id'])}
 
-    def _post_save(self, request):
-        process_upload(self.obj.id, str(request.user.id), self.obj.orig_file)
-
-    def create(self, request, **kwargs):
-        result = super().create(request, **kwargs)
-        self._post_save(request)
-        return result
-
-    def update(self, request, pk=None, **kwargs):
-        result = super().update(request, pk, **kwargs)
-        self._post_save(request)
-        return result
-
-    def partial_update(self, request, pk=None, **kwargs):
-        result = super().partial_update(request, pk, **kwargs)
-        self._post_save(request)
-        return result
+    def post_save(self, request):
+        process_upload(str(self.obj.id), str(request.user.id), self.obj.orig_file)

@@ -46,6 +46,13 @@ class ViewSetModelMixin:
     def apply_qs_filters(self, qs, **kwargs):
         return qs
 
+    def _post_save(self, request):
+        if self.obj is not None:
+            self.post_save(request)
+
+    def post_save(self, request):
+        pass
+
     def list(self, request, **kwargs):
         sa_session = Session()
         queryset = sa_session.query(self.serializer_class.model)
@@ -63,6 +70,7 @@ class ViewSetModelMixin:
             sa_session.add(self.obj)
             try:
                 sa_session.commit()
+                self._post_save(request)
             except Exception as e:
                 sa_session.rollback()
                 return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -85,6 +93,7 @@ class ViewSetModelMixin:
             sa_session = Session()
             try:
                 sa_session.commit()
+                self._post_save(request)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except Exception as e:
                 sa_session.rollback()
@@ -96,3 +105,14 @@ class ViewSetModelMixin:
     
     def partial_update(self, request, pk=None, **kwargs):
         return self._update(request, pk, partial=True, **kwargs)
+
+    def destroy(self, request, pk=None, **kwargs):
+        self.obj = self.get_object_or_404(pk, **kwargs)
+        sa_session = Session()
+        sa_session.delete(self.obj)
+        try:
+            sa_session.commit()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception:
+            sa_session.rollback()
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)

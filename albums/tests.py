@@ -1,20 +1,23 @@
 import os
 import io
 from PIL import Image
+from django.core import mail
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from rest_framework.test import APIClient
 from sa_helper import Session
 
-def generate_photo_file():
+def generate_image_file():
     file = io.BytesIO()
-    image = Image.new('RGBA', size=(100, 100), color=(155, 0, 0))
-    image.save(file, 'jpg')
+    image = Image.new('RGB', size=(100, 100), color=(155, 0, 0))
+    image.save(file, 'jpeg')
     file.name = 'test.jpg'
     file.seek(0)
     return file
 
-@override_settings(SA_DATABASE_URL = 'sqlite:///test.db')
+@override_settings(SA_DATABASE_URL='sqlite:///test.db',
+                   CELERY_BROKER_URL=None,
+                   CELERY_TASK_ALWAYS_EAGER=True)
 class BaseTestCase(SimpleTestCase):
 
     def setUp(self):
@@ -168,5 +171,53 @@ class PhotoTestCase(BaseTestCase):
         self.album2_id = result.data['id']
 
     def testCreateListRetrieve(self):
-        pass
+        client = APIClient()
+        result = client.post(
+            '/api-v1/albums/{}/photos/?session_key={}'.format(
+                self.album1_id, self.session1_key),
+            {'orig_file': generate_image_file(), 'description': ''})
+        self.assertEquals(result.status_code, 201)
+        self.assertEqual(len(mail.outbox), 1)
+        photo1_id = result.data['id']
 
+        result = client.get('/api-v1/albums/{}/photos/'.format(self.album1_id))
+        self.assertEquals(result.status_code, 403)
+
+        result = client.get('/api-v1/albums/{}/photos/?session_key={}'.format(
+            self.album1_id, self.session2_key))
+        self.assertEquals(result.status_code, 200)
+        # FIXME: Maybe url '<wrong album uuid>/photos' should return 404?
+        self.assertEqual(len(result.data), 0)
+
+        result = client.get('/api-v1/albums/{}/photos/?session_key={}'.format(
+            self.album1_id, self.session1_key))
+        self.assertEquals(result.status_code, 200)
+        self.assertEqual(len(result.data), 1)
+
+
+        result = client.post(
+            '/api-v1/albums/{}/photos/?session_key={}'.format(
+                self.album2_id, self.session1_key),
+            {'orig_file': generate_image_file(), 'description': ''})
+        self.assertEquals(result.status_code, 403)
+
+        result = client.post(
+            '/api-v1/albums/{}/photos/?session_key={}'.format(
+                self.album2_id, self.session2_key),
+            {'orig_file': generate_image_file(), 'description': ''})
+        self.assertEquals(result.status_code, 201)
+        self.assertEqual(len(mail.outbox), 2)
+
+        result = client.post(
+            '/api-v1/albums/{}/photos/{}/?session_key={}'.format(
+                self.album1_id, photo1_id, self.session2_key),
+            {'orig_file': generate_image_file(), 'description': ''})
+        self.assertEquals(result.status_code, 403)
+        self.assertEqual(len(mail.outbox), 2)
+
+        result = client.put(
+            '/api-v1/albums/{}/photos/{}/?session_key={}'.format(
+                self.album1_id, photo1_id, self.session1_key),
+            {'orig_file': generate_image_file(), 'description': ''})
+        self.assertEquals(result.status_code, 200)
+        self.assertEqual(len(mail.outbox), 3)
