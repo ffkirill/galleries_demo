@@ -76,3 +76,18 @@ SA_DATABASE_URL = 'sqlite:///foo.db'
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/medial/'
+
+SITE_URL_IN_EMAIL = 'https://mysite.com'
+NEW_PHOTO_FROM_EMAIL = 'uploads@mysite.com'
+
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost//'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+THUMBNAIL_SIZES = {
+    'middle': (1024, 768),
+    'small': (300, 200)
+}

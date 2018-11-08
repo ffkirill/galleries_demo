@@ -26,6 +26,7 @@ class ViewSetModelMixin:
     Provides CRUD operations implementation via SA backend to DRF's Viewsets
     """
     serializer_class = None
+    obj = None
 
     def get_object_or_404(self, pk, **kwargs):
         sa_session = Session()
@@ -58,8 +59,8 @@ class ViewSetModelMixin:
         sa_session = Session()
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
-            obj = serializer.save(**self.kwargs_to_validated_data(kwargs))
-            sa_session.add(obj)
+            self.obj = serializer.save(**self.kwargs_to_validated_data(kwargs))
+            sa_session.add(self.obj)
             try:
                 sa_session.commit()
             except Exception as e:
@@ -69,15 +70,15 @@ class ViewSetModelMixin:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def retrieve(self, request, pk=None, **kwargs):
-        obj = self.get_object_or_404(pk, **kwargs)
-        return Response(self.serializer_class(obj,  context={'request': request}).data)
+        self.obj = self.get_object_or_404(pk, **kwargs)
+        return Response(self.serializer_class(self.obj,  context={'request': request}).data)
     
     def _update(self, request, pk, partial=False, **kwargs):
-        obj = self.get_object_or_404(pk, **kwargs)
+        self.obj = self.get_object_or_404(pk, **kwargs)
         serializer = self.serializer_class(
             context={'request': request},
             data=request.data,
-            instance=obj,
+            instance=self.obj,
             partial=partial)
         if serializer.is_valid():
             serializer.save(**self.kwargs_to_validated_data(kwargs))

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy_utils import UUIDType, URLType, JSONType
+from sqlalchemy_utils import UUIDType, JSONType
 from sa_helper import BaseMapping
 
 class Album(BaseMapping):
@@ -16,6 +16,6 @@ class Photo(BaseMapping):
 
     id = Column(UUIDType, primary_key=True)
     album_id = Column(UUIDType, ForeignKey('album.id'), nullable=False)
-    orig_file = Column(URLType, default='', nullable=False)
+    orig_file = Column(String(length=300), nullable=False)
     thumbnails = Column(JSONType)
     album = relationship('Album')

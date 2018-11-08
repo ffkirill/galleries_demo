@@ -100,6 +100,12 @@ class AlbumTestCase(BaseTestCase):
         self.assertEquals(result.status_code, 200)
         self.assertEquals(len(result.data), 0)
 
+        client.post('/api-v1/albums/?session_key={}'.format(self.session2_key), album)
+        result = client.get('/api-v1/albums/?session_key={}'.format(self.session2_key))
+        self.assertEquals(result.status_code, 200)
+        self.assertEquals(len(result.data), 1)
+
+
         result = client.delete('/api-v1/albums/{}/?session_key={}'.format(album1_id,
                                                                        self.session2_key))
         self.assertEquals(result.status_code, 404)
@@ -111,3 +117,46 @@ class AlbumTestCase(BaseTestCase):
         result = client.get('/api-v1/albums/?session_key={}'.format(self.session1_key))
         self.assertEquals(result.status_code, 200)
         self.assertEquals(len(result.data), 0)
+
+
+class PhotoTestCase(BaseTestCase):
+    user1_id = None
+    user2_id = None
+    session1_key = None
+    session2_key = None
+    album1_id = None
+    album2_id = None
+
+    def setUp(self):
+        super().setUp()
+        client = APIClient()
+        result = client.post('/api-v1/users/', {'name': 'user1 name',
+                                                'last_name': 'user1 last',
+                                                'father_name': 'user1 father',
+                                                'password': 'pass1',
+                                                'email': 'user1@localhost'})
+        self.user1_id = result.data['id']
+        result = client.post('/api-v1/users/', {'name': 'user2 name',
+                                                'last_name': 'user2 last',
+                                                'father_name': 'user2 father',
+                                                'password': 'pass2',
+                                                'email': 'user2@localhost'})
+        self.user2_id = result.data['id']
+        result = client.post('/api-v1/auth/', {'email': 'user1@localhost',
+                                               'password': 'pass1'})
+        self.session1_key = result.data['session_key']
+        result = client.post('/api-v1/auth/', {'email': 'user2@localhost',
+                                               'password': 'pass2'})
+        self.session2_key = result.data['session_key']
+
+        result = client.post('/api-v1/albums/?session_key={}'.format(self.session1_key),
+                             {'name': 'album1', 'description': ''})
+        self.album1_id = result.data['id']
+
+        result = client.post('/api-v1/albums/?session_key={}'.format(self.session2_key),
+                             {'name': 'album2', 'description': ''})
+        self.album2_id = result.data['id']
+
+    def testCreateListRetrieve(self):
+        pass
+
