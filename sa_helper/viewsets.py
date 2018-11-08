@@ -1,5 +1,6 @@
 from uuid import UUID, uuid4
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound, ParseError
 from rest_framework import status
 from sqlalchemy.orm import exc
 
@@ -34,9 +35,9 @@ class ViewSetModelMixin:
             obj = self.apply_qs_filters(query, **kwargs).one()
             return obj
         except ValueError:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            raise ParseError
         except exc.NoResultFound:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            raise NotFound
 
     def kwargs_to_validated_data(self, kwargs):
         return kwargs

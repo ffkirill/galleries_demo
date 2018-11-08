@@ -1,7 +1,9 @@
 from uuid import UUID
-from rest_framework import viewsets, serializers
+from rest_framework import viewsets, serializers, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
+from sa_helper import Session
 from sa_helper.viewsets import ViewSetModelMixin, SerializerModelMixin
 from users.auth import SessionIdAuthentication
 
@@ -40,6 +42,16 @@ class AlbumViewSet(ViewSetModelMixin, viewsets.ViewSet):
     def apply_qs_filters(self, qs, **kwargs):
         return qs.filter(Album.user_id == self.request.user.id)
 
+    def destroy(self, request, pk=None, **kwargs):
+        album = self.get_object_or_404(pk)
+        sa_session = Session()
+        sa_session.delete(album)
+        try:
+            sa_session.commit()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception:
+            sa_session.rollback()
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PhotoSerializer(SerializerModelMixin, serializers.Serializer):
     model = Photo
