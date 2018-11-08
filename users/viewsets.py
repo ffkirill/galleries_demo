@@ -1,8 +1,5 @@
-from uuid import uuid4, UUID
-
 from rest_framework import serializers, viewsets, status
 from rest_framework.response import Response
-from sqlalchemy.orm import exc
 
 from sa_helper import Session
 from sa_helper.viewsets import SerializerModelMixin, ViewSetModelMixin
@@ -26,6 +23,9 @@ class UserSerializer(SerializerModelMixin, serializers.Serializer):
     father_name = serializers.CharField(max_length=200)
     password = PasswordField(max_length=50)
     email = serializers.EmailField()
+    country_id = serializers.UUIDField(required=False, allow_null=True)
+    eyes_id = serializers.UUIDField(required=False, allow_null=True)
+
     url = serializers.HyperlinkedIdentityField(view_name='user-detail',
                                                lookup_field='id',
                                                lookup_url_kwarg='pk')

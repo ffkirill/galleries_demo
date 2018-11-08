@@ -1,8 +1,18 @@
 import os
+import io
+from PIL import Image
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from rest_framework.test import APIClient
 from sa_helper import Session
+
+def generate_photo_file():
+    file = io.BytesIO()
+    image = Image.new('RGBA', size=(100, 100), color=(155, 0, 0))
+    image.save(file, 'jpg')
+    file.name = 'test.jpg'
+    file.seek(0)
+    return file
 
 @override_settings(SA_DATABASE_URL = 'sqlite:///test.db')
 class BaseTestCase(SimpleTestCase):

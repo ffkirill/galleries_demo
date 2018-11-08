@@ -2,7 +2,7 @@ from uuid import UUID
 
 from django.conf import settings
 
-from rest_framework import viewsets, serializers, status
+from rest_framework import viewsets, serializers, status, parsers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -35,7 +35,20 @@ class AlbumSerializer(SerializerModelMixin, serializers.Serializer):
         return instance
 
 
-class AlbumViewSet(ViewSetModelMixin, viewsets.ViewSet):
+class DestroyMixin:
+    def destroy(self, request, pk=None, **kwargs):
+        album = self.get_object_or_404(pk, **kwargs)
+        sa_session = Session()
+        sa_session.delete(album)
+        try:
+            sa_session.commit()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception:
+            sa_session.rollback()
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AlbumViewSet(DestroyMixin, ViewSetModelMixin, viewsets.ViewSet):
     """
     Albums CRUD operations, shows only owned (via user_id field) albums.
     Requires auth via session_key url param
@@ -46,18 +59,6 @@ class AlbumViewSet(ViewSetModelMixin, viewsets.ViewSet):
 
     def apply_qs_filters(self, qs, **kwargs):
         return qs.filter(Album.user_id == self.request.user.id)
-
-    def destroy(self, request, pk=None, **kwargs):
-        album = self.get_object_or_404(pk)
-        sa_session = Session()
-        sa_session.delete(album)
-        try:
-            sa_session.commit()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            sa_session.rollback()
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class ImageField(serializers.ImageField):
     def to_representation(self, value):
@@ -74,6 +75,8 @@ class ThumbnailsJSONField(serializers.JSONField):
         value = super().to_representation(value)
         if not value:
             return None
+        if 'status' in value:
+            return value
         request = self.context.get('request', None)
         if request is not None:
             return {key:request.build_absolute_uri(settings.MEDIA_URL + filename)
@@ -88,14 +91,23 @@ class PhotoSerializer(SerializerModelMixin, serializers.Serializer):
     orig_file = ImageField()
     thumbnails = ThumbnailsJSONField(read_only=True)
 
-    def create(self, validated_data, **kwargs):
-        instance = super().create(validated_data, **kwargs)
+    def _process_file(self, instance, validated_data):
         upfile = validated_data['orig_file']
         instance.orig_file = save_uploaded_photo(upfile)
+
+
+    def create(self, validated_data, **kwargs):
+        instance = super().create(validated_data, **kwargs)
+        instance.thumbnails = {'status': 'processing'}
+        self._process_file(instance, validated_data)
         return instance
 
+    def update(self, instance, validated_data, **kwargs):
+        instance = super().update(instance, validated_data, **kwargs)
+        self._process_file(instance, validated_data)
+        return instance
 
-class PhotoViewSet(ViewSetModelMixin, viewsets.ViewSet):
+class PhotoViewSet(DestroyMixin, ViewSetModelMixin, viewsets.ViewSet):
     """
     Album's photos CRUD operations.
     Requires auth via session_key url param
@@ -103,6 +115,7 @@ class PhotoViewSet(ViewSetModelMixin, viewsets.ViewSet):
     authentication_classes = (SessionIdAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = PhotoSerializer
+    parser_classes = (parsers.MultiPartParser, parsers.FormParser,)
 
     def apply_qs_filters(self, qs, **kwargs):
         return qs.filter(Photo.album_id == UUID(kwargs['parent_lookup_object_id']),
@@ -111,7 +124,20 @@ class PhotoViewSet(ViewSetModelMixin, viewsets.ViewSet):
     def kwargs_to_validated_data(self, kwargs):
         return {'album_id': UUID(kwargs['parent_lookup_object_id'])}
 
+    def _post_save(self, request):
+        process_upload(self.obj.id, str(request.user.id), self.obj.orig_file)
+
     def create(self, request, **kwargs):
         result = super().create(request, **kwargs)
-        process_upload(self.obj.id, str(request.user.id), self.obj.orig_file)
+        self._post_save(request)
+        return result
+
+    def update(self, request, pk=None, **kwargs):
+        result = super().update(request, pk, **kwargs)
+        self._post_save(request)
+        return result
+
+    def partial_update(self, request, pk=None, **kwargs):
+        result = super().partial_update(request, pk, **kwargs)
+        self._post_save(request)
         return result

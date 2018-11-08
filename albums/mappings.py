@@ -15,7 +15,7 @@ class Photo(BaseMapping):
     __tablename__ = 'photo'
 
     id = Column(UUIDType, primary_key=True)
-    album_id = Column(UUIDType, ForeignKey('album.id'), nullable=False)
+    album_id = Column(UUIDType, ForeignKey('album.id', ondelete='CASCADE'), nullable=False)
     orig_file = Column(String(length=300), nullable=False)
     thumbnails = Column(JSONType)
     album = relationship('Album')
