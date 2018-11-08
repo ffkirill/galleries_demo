@@ -87,6 +87,7 @@ CELERY_BROKER_URL = 'amqp://guest:guest@localhost//'
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+SESSION_FILE_PATH = os.path.join(BASE_DIR, 'sessions')
 
 THUMBNAIL_SIZES = {
     'middle': (1024, 768),

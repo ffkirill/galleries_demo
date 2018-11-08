@@ -12,3 +12,5 @@ six==1.11.0
 SQLAlchemy==1.2.13
 SQLAlchemy-Utils==0.33.6
 vine==1.1.4
+psycopg2==2.7.5
+

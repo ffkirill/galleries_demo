@@ -1,0 +1,34 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+     - "8000:8000"
+    expose:
+     - "8000"
+    depends_on:
+     - postgres
+     - rabbitmq
+    volumes:
+     - media:/app/media
+     - sessions:/app/sessions
+
+  celery:
+    build: .
+    command: celery -A galleries worker -l info
+    depends_on:
+      - postgres
+      - rabbitmq
+      - web
+    volumes:
+     - media:/app/media
+
+  rabbitmq:
+    image: "rabbitmq:alpine"
+
+  postgres:
+    image: "postgres:alpine"
+
+volumes:
+  media:
+  sessions:
