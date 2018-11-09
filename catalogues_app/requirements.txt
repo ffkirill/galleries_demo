@@ -3,3 +3,4 @@ djangorestframework==3.9.0
 SQLAlchemy==1.2.13
 SQLAlchemy-Utils==0.33.6
 psycopg2==2.7.5
+python-memcached==1.59
