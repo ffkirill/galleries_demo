@@ -97,8 +97,10 @@ class PhotoAlbumPermission(IsAuthenticated):
     def has_permission(self, request, view):
         result = super().has_permission(request, view)
         if result and request.method not in SAFE_METHODS:
-            return Session().query(Album).filter(Album.id == view.kwargs['parent_lookup_object_id'],
-                                          Album.user_id == request.user.id).first() is not None
+            return Session().query(Album).filter(
+                Album.id == view.kwargs['parent_lookup_object_id'],
+                Album.user_id == request.user.id
+            ).first() is not None
         else:
             return result
 
