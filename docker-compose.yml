@@ -1,7 +1,9 @@
 version: '3'
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: galleries_app/Dockerfile
     ports:
      - "8000:8000"
     expose:
@@ -12,13 +14,14 @@ services:
     volumes:
      - media:/app/media
      - sessions:/app/sessions
-
   celery:
-    build: .
+    build:
+      context: .
+      dockerfile: galleries_app/Dockerfile
     command: celery -A galleries worker -l info
     depends_on:
       - postgres
-      - rabbitmqls
+      - rabbitmq
       - web
     volumes:
      - media:/app/media
